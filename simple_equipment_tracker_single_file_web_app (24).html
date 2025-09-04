@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Asset Management</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background:#f9f9f9;}
+    header { background: #2c3e50; color: #fff; padding: 1rem; text-align: center; }
+    .container { padding: 1rem; }
+
+    .dashboard { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .card { flex: 1; padding: 1rem; background: #fff; border-radius: 8px; text-align: center; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; background:#fff; padding:0.5rem; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.1);}
+    .toolbar-left button { margin-right:0.5rem; padding:0.5rem 1rem; border:none; border-radius:5px; cursor:pointer; background:#3498db; color:white; font-size:0.9rem;}
+    .toolbar-left button:hover { background:#2980b9;}
+    .toolbar-right input { padding:0.5rem; border:1px solid #ccc; border-radius:5px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.1);}
+    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+    th { background: #f4f4f4; }
+
+    .action-btn { padding:0.3rem 0.6rem; border:none; border-radius:4px; cursor:pointer; font-size:0.8rem; margin-right:0.3rem; }
+    .edit-btn { background:#f39c12; color:white; }
+    .edit-btn:hover { background:#d68910; }
+    .delete-btn { background:#e74c3c; color:white; }
+    .delete-btn:hover { background:#c0392b; }
+
+    /* Modal */
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+    .modal-content { background:#fff; padding:1rem; border-radius:8px; width:600px; max-height:90vh; overflow-y:auto; }
+    .modal-content h2 { margin-top:0; }
+    .modal-content label { display:block; margin-top:0.5rem; font-size:0.9rem;}
+    .modal-content input { width:100%; padding:0.4rem; margin-top:0.2rem; border:1px solid #ccc; border-radius:4px; }
+    .modal-actions { margin-top:1rem; text-align:right; }
+    .modal-actions button { padding:0.5rem 1rem; margin-left:0.5rem; border:none; border-radius:5px; cursor:pointer; }
+    .save-btn { background:#27ae60; color:white;}
+    .save-btn:hover { background:#1e8449; }
+    .cancel-btn { background:#7f8c8d; color:white;}
+    .cancel-btn:hover { background:#626567; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Asset Management</h1>
+  </header>
+  <div class="container">
+    <div class="dashboard" id="dashboard">
+      <div class="card">Total Assets: <span id="totalAssets">0</span></div>
+      <div class="card">In Use: <span id="inUseAssets">0</span></div>
+      <div class="card">Available: <span id="availableAssets">0</span></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button onclick="openAddModal()">➕ Add Asset</button>
+        <button onclick="document.getElementById('importFile').click()">⬆️ Import CSV/XLSX</button>
+        <input type="file" id="importFile" accept=".csv,.xlsx" style="display:none" onchange="handleImport(event)" />
+        <button onclick="removeImported()">🗑 Remove Imported Files</button>
+        <button onclick="exportData()">⬇️ Export CSV</button>
+      </div>
+      <div class="toolbar-right">
+        <input type="text" id="search" placeholder="Search..." onkeyup="filterTable()" />
+      </div>
+    </div>
+
+    <table id="assetTable">
+      <thead>
+        <tr>
+          <th>User</th><th>IP Address</th><th>Mac Address</th><th>RAM</th><th>Storage</th>
+          <th>OS Version</th><th>Model</th><th>Serial#</th><th>Processor</th><th>Device</th>
+          <th>Brand</th><th>MS Office</th><th>Office</th><th>Division</th><th>Remarks</th>
+          <th>Status</th><th>MR #</th><th>Date Purchased</th><th>Date Release/Receive by Admin</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="assetModal">
+    <div class="modal-content">
+      <h2 id="modalTitle">Add Asset</h2>
+      <form id="assetForm">
+        <label>User<input name="User" required></label>
+        <label>IP Address<input name="IP Address"></label>
+        <label>Mac Address<input name="Mac Address"></label>
+        <label>RAM<input name="RAM"></label>
+        <label>Storage<input name="Storage"></label>
+        <label>OS Version<input name="OS Version"></label>
+        <label>Model<input name="Model"></label>
+        <label>Serial#<input name="Serial#" required></label>
+        <label>Processor<input name="Processor"></label>
+        <label>Device<input name="Device"></label>
+        <label>Brand<input name="Brand"></label>
+        <label>MS Office<input name="MS Office"></label>
+        <label>Office<input name="Office"></label>
+        <label>Division<input name="Division"></label>
+        <label>Remarks<input name="Remarks"></label>
+        <label>Status<input name="Status"></label>
+        <label>MR #<input name="MR #"></label>
+        <label>Date Purchased<input type="date" name="Date Purchased"></label>
+        <label>Date Release/Receive by Admin<input type="date" name="Date Release/Receive by Admin"></label>
+      </form>
+      <div class="modal-actions">
+        <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+        <button class="save-btn" onclick="saveAsset()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let assets = [];
+    let editIndex = null;
+
+    function updateDashboard() {
+      document.getElementById('totalAssets').textContent = assets.length;
+      document.getElementById('inUseAssets').textContent = assets.filter(a => a.Status === 'In Use').length;
+      document.getElementById('availableAssets').textContent = assets.filter(a => a.Status === 'Available').length;
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector('#assetTable tbody');
+      tbody.innerHTML = '';
+      assets.forEach((asset, index) => {
+        const row = document.createElement('tr');
+        Object.values(asset).forEach(val => {
+          const td = document.createElement('td');
+          td.textContent = val;
+          row.appendChild(td);
+        });
+        const actions = document.createElement('td');
+        actions.innerHTML = `
+          <button class="action-btn edit-btn" onclick="openEditModal(${index})">Edit</button>
+          <button class="action-btn delete-btn" onclick="deleteAsset(${index})">Delete</button>
+        `;
+        row.appendChild(actions);
+        tbody.appendChild(row);
+      });
+      updateDashboard();
+    }
+
+    function openAddModal() {
+      editIndex = null;
+      document.getElementById('modalTitle').textContent = "Add Asset";
+      document.getElementById('assetForm').reset();
+      document.getElementById('assetModal').style.display = 'flex';
+    }
+
+    function openEditModal(index) {
+      editIndex = index;
+      document.getElementById('modalTitle').textContent = "Edit Asset";
+      const form = document.getElementById('assetForm');
+      const asset = assets[index];
+      for (let field of form.elements) {
+        if (field.name && asset[field.name] !== undefined) {
+          field.value = asset[field.name];
+        }
+      }
+      document.getElementById('assetModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('assetModal').style.display = 'none';
+    }
+
+    function saveAsset() {
+      const form = document.getElementById('assetForm');
+      const formData = {};
+      for (let field of form.elements) {
+        if (field.name) formData[field.name] = field.value;
+      }
+
+      const duplicate = assets.find((a, i) => a["Serial#"] === formData["Serial#"] && i !== editIndex);
+      if (duplicate) {
+        alert("Error: Duplicate Serial# not allowed!");
+        return;
+      }
+
+      if (editIndex === null) {
+        formData._imported = false;
+        assets.push(formData);
+      } else {
+        assets[editIndex] = formData;
+      }
+
+      closeModal();
+      renderTable();
+    }
+
+    function deleteAsset(index) {
+      if (confirm("Are you sure you want to delete this asset?")) {
+        assets.splice(index, 1);
+        renderTable();
+      }
+    }
+
+    function filterTable() {
+      const query = document.getElementById('search').value.toLowerCase();
+      const rows = document.querySelectorAll('#assetTable tbody tr');
+      rows.forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(query) ? '' : 'none';
+      });
+    }
+
+    function exportData() {
+      if (assets.length === 0) return alert("No data to export");
+      const headers = Object.keys(assets[0]).filter(k=>k!=='_imported').join(",");
+      const rows = assets.map(obj => Object.entries(obj).filter(([k])=>k!=='_imported').map(([_,v])=>v).join(","));
+      const csv = [headers, ...rows].join("\n");
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'assets.csv';
+      a.click();
+    }
+
+    function handleImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        let data = new Uint8Array(e.target.result);
+        let workbook = XLSX.read(data, {type:'array'});
+        let firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        let json = XLSX.utils.sheet_to_json(firstSheet, {defval:''});
+
+        json.forEach(row => {
+          if (!row["Serial#"]) return;
+          const duplicate = assets.find(a => a["Serial#"] === row["Serial#"]);
+          if (!duplicate) {
+            row._imported = true;
+            assets.push(row);
+          }
+        });
+
+        renderTable();
+        event.target.value = "";
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function removeImported() {
+      const before = assets.length;
+      assets = assets.filter(a => !a._imported);
+      if (assets.length < before) {
+        alert("Imported assets removed successfully.");
+      } else {
+        alert("No imported assets found.");
+      }
+      renderTable();
+    }
+  </script>
+</body>
+</html>
